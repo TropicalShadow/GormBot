@@ -1,5 +1,5 @@
 import asyncio
-from discord import ApplicationContext, ButtonStyle, CategoryChannel, Colour, Embed, Guild, Interaction, Member, PartialEmoji, PermissionOverwrite, Permissions, TextChannel, slash_command
+from discord import ApplicationContext, ButtonStyle, CategoryChannel, Colour, Embed, Guild, Interaction, Member, Option, PartialEmoji, PermissionOverwrite, Permissions, SlashCommandGroup, TextChannel, option, slash_command
 from discord.ext.commands import Cog, Bot
 
 from typing import TYPE_CHECKING, Optional, Tuple, cast
@@ -27,7 +27,9 @@ class TicketSystem(Cog):
         if audit:
             await audit.send_log(content=content)
 
-    @slash_command(name="send_ticket_menu", default_member_permissions=Permissions(administrator=True))
+    TICKET_SLASH_COMMAND_GROUP = SlashCommandGroup(name="ticket", description="management of the ticket system")
+
+    @TICKET_SLASH_COMMAND_GROUP.slash_command(name="send_ticket_menu", default_member_permissions=Permissions(administrator=True))
     async def send_ticket_menu(self, context: ApplicationContext):
         channel = context.channel
 
@@ -35,16 +37,70 @@ class TicketSystem(Cog):
 
         await channel.send(embed=emb, view=TicketSelector())
 
-        await context.send(content="Sent Menu", ephemeral=True)
+        await context.respond(content="Sent Menu", ephemeral=True)
 
-    @slash_command(name="debug_ticket", default_member_permissions=Permissions(administrator=True))
+    @TICKET_SLASH_COMMAND_GROUP.slash_command(name="debug_ticket", default_member_permissions=Permissions(administrator=True))
     async def send_debug_ticket(self, context: ApplicationContext):
         with self.bot.db.ticket_system_table as ticket:
             data = ticket["tickets"]
             if data is None:
-                await context.send("No Data Found")
+                await context.respond(content="No Data Found")
             else:
-                await context.send(content=str(data)[:2000])
+                await context.respond(content=str(data)[:2000])
+
+    @TICKET_SLASH_COMMAND_GROUP.slash_command(name="add_member")
+    @option("member", Member, description="member to add to the ticket")
+    async def add_member_to_ticket(self, context: ApplicationContext, member: Member):
+        if member is None:
+            await context.respond(content="unknown member", ephemeral=True)
+            return
+
+        channel_id = context.channel_id
+        exists = self.bot.db.ticket_system_table.channel_exists(channel_id)
+        if not exists:
+            await context.respond(content="This isn't a ticket channel", ephemeral=True)
+            return
+
+        channel = context.channel
+        channel.set_permissions(
+            member,
+            PermissionOverwrite(
+                use_slash_commands=True,
+                view_channel=True,
+                read_message_history=True,
+                attach_files=True,
+                embed_links=True,
+                send_messages=True,
+            )
+        )
+        await context.respond(content=f"{member.mention} has been given access to the channel", ephemeral=True)
+        emb = Embed(
+            title=f"{member.mention} has been added to the ticket!",
+            colour=0x00FF00
+        )
+        await channel.send(embed=emb)
+
+    @TICKET_SLASH_COMMAND_GROUP.slash_command(name="remove_member")
+    @option("member", Member, description="member to remove from the ticket")
+    async def remove_member_from_ticket(self, context: ApplicationContext, member: Member):
+        if member is None:
+            await context.respond(content="unknown member", ephemeral=True)
+            return
+
+        channel_id = context.channel_id
+        exists = self.bot.db.ticket_system_table.channel_exists(channel_id)
+        if not exists:
+            await context.respond(content="This isn't a ticket channel", ephemeral=True)
+            return
+
+        channel = context.channel
+        channel.set_permissions(member, None)
+        await context.respond(content=f"{member.mention} has been removed from the ticket", ephemeral=True)
+        emb = Embed(
+            title=f"{member.mention} has been removed from the ticket!",
+            colour=0xFF0000
+        )
+        await channel.send(embed=emb)
 
     @Cog.listener()
     async def on_guild_channel_delete(self, channel: TextChannel):
