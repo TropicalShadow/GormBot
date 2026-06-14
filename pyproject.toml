@@ -1,0 +1,16 @@
+[project]
+name = "gormbuildsbot"
+version = "0.1.0"
+description = "A bot for the GormBuilds Discord server"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "coghotswap",
+    "py-cord[voice]>=2.6.1",
+    "python-dotenv>=1.1.0",
+    "sqlitedict>=2.1",
+    "dataclasses-json>=0.6.7",
+]
+
+[tool.uv.sources]
+coghotswap = { git = "https://github.com/TropicalShadow/CogHotSwap", rev = "cb87e3ba06ab4f04efc8903efb2cfc26e2379afe" }
