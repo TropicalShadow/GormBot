@@ -344,7 +344,7 @@ class CloseTicket(View):
         category = ticket.category if ticket else "unknown"
 
         await channel.edit(name=f"closed-{author_name}")
-        await asyncio.sleep(5)
+        await asyncio.sleep(1)
         bot.db.ticket_system_table.delete_ticket(channel.id)
         audit = bot.get_cog("AuditSystem")
         if audit:
