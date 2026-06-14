@@ -62,16 +62,17 @@ class TicketSystem(Cog):
             return
 
         channel = context.channel
-        channel.set_permissions(
+        await channel.set_permissions(
             member,
-            PermissionOverwrite(
+            overwrite=PermissionOverwrite(
                 use_slash_commands=True,
                 view_channel=True,
                 read_message_history=True,
                 attach_files=True,
                 embed_links=True,
                 send_messages=True,
-            )
+            ),
+            reason=f"added by {context.author.display_name}"
         )
         await context.respond(content=f"{member.mention} has been given access to the channel", ephemeral=True)
         emb = Embed(
@@ -94,7 +95,7 @@ class TicketSystem(Cog):
             return
 
         channel = context.channel
-        channel.set_permissions(member, None)
+        await channel.set_permissions(member, overwrite=None, reason=f"removed by {context.author.display_name}")
         await context.respond(content=f"{member.mention} has been removed from the ticket", ephemeral=True)
         emb = Embed(
             title=f"{member.mention} has been removed from the ticket!",
