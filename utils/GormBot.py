@@ -9,8 +9,8 @@ from db import DatabaseManager
 class GormBot(Bot):
     logger: Logger = getLogger("GormBot")
 
-    def __init__(self, token: str):
-        super().__init__(token=token, intents=Intents.all(), debug_guilds=[1515413540972789790])
+    def __init__(self):
+        super().__init__(intents=Intents.all(), debug_guilds=[1515413540972789790])
         self.logger.info("Discord Version: %s", __version__)
         self.logger.info("GormBot is initializing...")
         self.watcher = Watcher(self, "modules", preload=True)  # type: ignore

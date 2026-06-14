@@ -10,8 +10,8 @@ def main():
     if not token:
         raise ValueError("BOT_TOKEN environment variable is not set.")
 
-    bot = GormBot(token)
-    bot.run()
+    bot = GormBot()
+    bot.run(token)
 
 
 if __name__ == "__main__":
