@@ -1,6 +1,6 @@
 from logging import Logger, getLogger
 from coghotswap import Watcher
-from discord import Intents, Permissions, __version__
+from discord import Intents, __version__
 from discord.bot import Bot
 
 from db import DatabaseManager

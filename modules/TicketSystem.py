@@ -22,6 +22,11 @@ class TicketSystem(Cog):
     def __init__(self, bot: 'GormBot'):
         self.bot: GormBot = bot
 
+    async def _audit_log(self, content: str):
+        audit = self.bot.get_cog("AuditSystem")
+        if audit:
+            await audit.send_log(content=content)
+
     @slash_command(name="send_ticket_menu", default_member_permissions=Permissions(administrator=True))
     async def send_ticket_menu(self, context: ApplicationContext):
         channel = context.channel
@@ -30,7 +35,7 @@ class TicketSystem(Cog):
 
         await channel.send(embed=emb, view=TicketSelector())
 
-        await context.send(context="Sent Menu", ephemeral=True)
+        await context.send(content="Sent Menu", ephemeral=True)
 
     @slash_command(name="debug_ticket", default_member_permissions=Permissions(administrator=True))
     async def send_debug_ticket(self, context: ApplicationContext):
@@ -53,7 +58,7 @@ class TicketSystem(Cog):
 
         deleted = self.bot.db.ticket_system_table.delete_ticket(channel_id)
         if deleted:
-            await self.bot.get_cog("AuditSystem").send_log(content=f"<@{deleted.author_id}>'s {deleted.category} ticket was deleted")
+            await self._audit_log(f"<@{deleted.author_id}>'s {deleted.category} ticket was deleted")
 
     @Cog.listener()
     async def on_ready(self):
@@ -69,7 +74,7 @@ class TicketSystem(Cog):
         for ticket in tickets_to_delete:
             deleted = self.bot.db.ticket_system_table.delete_ticket(ticket)
             if deleted:
-                await self.bot.get_cog("AuditSystem").send_log(content=f"<@{deleted.author_id}>'s {deleted.category} ticket was deleted")
+                await self._audit_log(f"<@{deleted.author_id}>'s {deleted.category} ticket was deleted")
 
 
 class TicketSelector(View):
@@ -96,14 +101,16 @@ class TicketSelector(View):
             channel_mention = (
                 msg.mention
                 if isinstance(msg, TextChannel)
-                else f"<#{self.ticket_category_id}"
+                else f"<#{self.ticket_category_id}>"
             )
 
             await interaction.followup.send(
                 ephemeral=True,
                 content=f"Your Ticket has been opened at {channel_mention}",
             )
-            await bot.get_cog("AuditSystem").send_log(content=f"{author.mention} {author.display_name} created a builder ticket at {channel_mention}")
+            audit = bot.get_cog("AuditSystem")
+            if audit:
+                await audit.send_log(content=f"{author.mention} {author.display_name} created a builder ticket at {channel_mention}")
         else:
             await interaction.followup.send(
                 ephemeral=True, content=f"Failed to create a ticket!\n{msg}"
@@ -126,14 +133,16 @@ class TicketSelector(View):
             channel_mention = (
                 msg.mention
                 if isinstance(msg, TextChannel)
-                else f"<#{self.ticket_category_id}"
+                else f"<#{self.ticket_category_id}>"
             )
 
             await interaction.followup.send(
                 ephemeral=True,
                 content=f"Your Ticket has been opened at {channel_mention}",
             )
-            await bot.get_cog("AuditSystem").send_log(content=f"{author.mention} {author.display_name} created a developer ticket at {channel_mention}")
+            audit = bot.get_cog("AuditSystem")
+            if audit:
+                await audit.send_log(content=f"{author.mention} {author.display_name} created a developer ticket at {channel_mention}")
         else:
             await interaction.followup.send(
                 ephemeral=True, content=f"Failed to create a ticket!\n{msg}"
@@ -159,14 +168,16 @@ class TicketSelector(View):
             channel_mention = (
                 msg.mention
                 if isinstance(msg, TextChannel)
-                else f"<#{self.ticket_category_id}"
+                else f"<#{self.ticket_category_id}>"
             )
 
             await interaction.followup.send(
                 ephemeral=True,
                 content=f"Your Ticket has been opened at {channel_mention}",
             )
-            await bot.get_cog("AuditSystem").send_log(content=f"{author.mention} {author.display_name} created a support ticket at {channel_mention}")
+            audit = bot.get_cog("AuditSystem")
+            if audit:
+                await audit.send_log(content=f"{author.mention} {author.display_name} created a support ticket at {channel_mention}")
         else:
             await interaction.followup.send(
                 ephemeral=True, content=f"Failed to create a ticket!\n{msg}"
@@ -278,8 +289,10 @@ class CloseTicket(View):
         await channel.edit(name=f"closed-{author_name}")
         await asyncio.sleep(5)
         bot.db.ticket_system_table.delete_ticket(channel.id)
+        audit = bot.get_cog("AuditSystem")
+        if audit:
+            await audit.send_log(content=f"{author.id} {author.display_name} Closed {author_id} {author_name}'s {category} ticket")
         await channel.delete(reason=f"Ticket Closed by {author.id} {author.display_name}")
-        await bot.get_cog("AuditSystem").send_log(content=f"{author.id} {author.display_name} Closed {author_id} {author_name}'s {category} ticket")
 
 
 def setup(bot: Bot):

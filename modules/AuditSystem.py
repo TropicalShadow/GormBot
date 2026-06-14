@@ -15,6 +15,8 @@ class AuditSystem(Cog):
             return
 
         audit_channel = self.bot.get_channel(AUDIT_CHANNEL_ID)
+        if audit_channel is None:
+            return
         await audit_channel.send(content, embed=embed)
 
 
