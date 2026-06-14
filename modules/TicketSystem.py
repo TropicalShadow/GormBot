@@ -74,7 +74,7 @@ class TicketSystem(Cog):
             ),
             reason=f"added by {context.author.display_name}"
         )
-        await context.respond(content=f"{member.mention} has been given access to the channel", ephemeral=True)
+        await context.respond(content=f"{member.display_name} has been given access to the channel", ephemeral=True)
         emb = Embed(
             title=f"{member.mention} has been added to the ticket!",
             colour=0x00FF00
@@ -98,7 +98,7 @@ class TicketSystem(Cog):
         await channel.set_permissions(member, overwrite=None, reason=f"removed by {context.author.display_name}")
         await context.respond(content=f"{member.mention} has been removed from the ticket", ephemeral=True)
         emb = Embed(
-            title=f"{member.mention} has been removed from the ticket!",
+            title=f"{member.display_name} has been removed from the ticket!",
             colour=0xFF0000
         )
         await channel.send(embed=emb)
