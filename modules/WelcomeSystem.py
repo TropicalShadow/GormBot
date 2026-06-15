@@ -23,7 +23,7 @@ class WelcomeSystem(Cog):
 
         role = guild.get_role(NEWBIE_ROLE_ID)
         if role is None:
-            self.bot.logger.warning("Newbiew role no longer exists, new members wont receive a role")
+            self.bot.logger.warning("Newbie role no longer exists, new members wont receive a role")
             return
 
         await member.add_roles(role, reason="new member")

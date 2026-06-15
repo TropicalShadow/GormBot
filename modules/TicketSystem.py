@@ -41,6 +41,23 @@ class TicketSystem(Cog):
         if audit:
             await audit.send_log(content=content)
 
+    async def _close_ticket(self, bot: 'GormBot', guild: Guild, channel: TextChannel, closed_by: Member):
+        ticket = bot.db.ticket_system_table.get_ticket(channel.id)
+        author_name = ticket.author_name if ticket else "unknown"
+        author_id = ticket.author_id if ticket else "unknown"
+        category = ticket.category if ticket else "unknown"
+
+        if ticket and ticket.voice_channel:
+            voice_channel = guild.get_channel(ticket.voice_channel)
+            if voice_channel:
+                await voice_channel.delete(reason="ticket closed")
+
+        await channel.edit(name=f"closed-{author_name}")
+        await asyncio.sleep(1)
+        bot.db.ticket_system_table.delete_ticket(channel.id)
+        await self._audit_log(f"{closed_by.id} {closed_by.display_name} Closed {author_id} {author_name}'s {category} ticket")
+        await channel.delete(reason=f"Ticket Closed by {closed_by.id} {closed_by.display_name}")
+
     TICKET_SLASH_COMMAND_GROUP = SlashCommandGroup(name="ticket", description="management of the ticket system")
 
     @TICKET_SLASH_COMMAND_GROUP.command(name="send_ticket_menu", default_member_permissions=Permissions(administrator=True))
@@ -55,12 +72,16 @@ class TicketSystem(Cog):
 
     @TICKET_SLASH_COMMAND_GROUP.command(name="debug_ticket", default_member_permissions=Permissions(administrator=True))
     async def send_debug_ticket(self, context: ApplicationContext):
-        with self.bot.db.ticket_system_table as ticket:
-            data = ticket["tickets"]
-            if data is None:
-                await context.respond(content="No Data Found")
-            else:
-                await context.respond(content=str(data)[:2000])
+        ticket_ids = self.bot.db.ticket_system_table.get_all_ticket_ids()
+        if not ticket_ids:
+            await context.respond(content="No tickets found")
+            return
+        tickets = []
+        for tid in ticket_ids:
+            ticket = self.bot.db.ticket_system_table.get_ticket(tid)
+            if ticket:
+                tickets.append(f"<#{tid}>: {ticket.category} by {ticket.author_name}")
+        await context.respond(content="\n".join(tickets)[:2000] if tickets else "No tickets found")
 
     @TICKET_SLASH_COMMAND_GROUP.command(name="close")
     async def close_ticket_command(self, context: ApplicationContext):
@@ -69,23 +90,7 @@ class TicketSystem(Cog):
         guild = cast(Guild, context.guild)
         bot = cast('GormBot', context.client)
 
-        ticket = bot.db.ticket_system_table.get_ticket(channel.id)
-        author_name = ticket.author_name if ticket else "unknown"
-        author_id = ticket.author_id if ticket else "unknown"
-        category = ticket.category if ticket else "unknown"
-
-        if voice_channel_id := ticket.voice_channel:
-            voice_channel = guild.get_channel(voice_channel_id)
-            if voice_channel:
-                await voice_channel.delete(reason="ticket closed")
-
-        await channel.edit(name=f"closed-{author_name}")
-        await asyncio.sleep(1)
-        bot.db.ticket_system_table.delete_ticket(channel.id)
-        audit = bot.get_cog("AuditSystem")
-        if audit:
-            await audit.send_log(content=f"{author.id} {author.display_name} Closed {author_id} {author_name}'s {category} ticket")
-        await channel.delete(reason=f"Ticket Closed by {author.id} {author.display_name}")
+        await self._close_ticket(bot, guild, channel, author)
 
 
     @TICKET_SLASH_COMMAND_GROUP.command(name="create_voice_channel")
@@ -99,6 +104,10 @@ class TicketSystem(Cog):
         await context.response.defer(ephemeral=True)
 
         ticket = bot.db.ticket_system_table.get_ticket(channel.id)
+
+        if ticket is None:
+            await context.followup.send("This channel is not a ticket", ephemeral=True)
+            return
 
         if ticket.voice_channel is not None:
             await context.followup.send(f"Voice channel already exists at <#{ticket.voice_channel}>", ephemeral=True)
@@ -414,23 +423,9 @@ class CloseTicket(View):
         guild = cast(Guild, interaction.guild)
         bot = cast('GormBot', interaction.client)
 
-        ticket = bot.db.ticket_system_table.get_ticket(channel.id)
-        author_name = ticket.author_name if ticket else "unknown"
-        author_id = ticket.author_id if ticket else "unknown"
-        category = ticket.category if ticket else "unknown"
-
-        if voice_channel_id := ticket.voice_channel:
-            voice_channel = guild.get_channel(voice_channel_id)
-            if voice_channel:
-                await voice_channel.delete(reason="ticket closed")
-
-        await channel.edit(name=f"closed-{author_name}")
-        await asyncio.sleep(1)
-        bot.db.ticket_system_table.delete_ticket(channel.id)
-        audit = bot.get_cog("AuditSystem")
-        if audit:
-            await audit.send_log(content=f"{author.id} {author.display_name} Closed {author_id} {author_name}'s {category} ticket")
-        await channel.delete(reason=f"Ticket Closed by {author.id} {author.display_name}")
+        ticket_system = bot.get_cog("TicketSystem")
+        if ticket_system:
+            await ticket_system._close_ticket(bot, guild, channel, author)
 
     @button(
         label="Voice",
@@ -447,6 +442,10 @@ class CloseTicket(View):
         await interaction.response.defer(ephemeral=True)
 
         ticket = bot.db.ticket_system_table.get_ticket(channel.id)
+
+        if ticket is None:
+            await interaction.followup.send("This channel is not a ticket")
+            return
 
         if ticket.voice_channel is not None:
             await interaction.followup.send(f"Voice channel already exists at <#{ticket.voice_channel}>")
