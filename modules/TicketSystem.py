@@ -1,9 +1,11 @@
+from ast import Delete
 import asyncio
-from discord import ApplicationContext, ButtonStyle, CategoryChannel, Colour, Embed, Guild, Interaction, Member, Option, PartialEmoji, PermissionOverwrite, Permissions, SlashCommandGroup, TextChannel, option, slash_command
+from discord import ApplicationContext, ButtonStyle, CategoryChannel, Colour, Embed, Guild, Interaction, Member, PartialEmoji, PermissionOverwrite, Permissions, Role, SlashCommandGroup, TextChannel, VoiceChannel, VoiceState, option
 from discord.ext.commands import Cog, Bot
 
 from typing import TYPE_CHECKING, Optional, Tuple, cast
 
+from discord.guild import GuildChannel
 from discord.ui import Button, View, button
 from discord.utils import format_dt, utcnow
 
@@ -15,6 +17,20 @@ if TYPE_CHECKING:
 
 TICKET_CATEGORY_ID = 1515417410369487010
 GUILD_ID = 1515413540972789790
+
+
+def allow_user_permissions(category: CategoryChannel, member: Member) -> dict[Role | Member, PermissionOverwrite]:
+    overwrites = category.overwrites
+    overwrites[category.guild.default_role] = PermissionOverwrite(view_channel=False)
+    overwrites[member] = PermissionOverwrite(
+        use_slash_commands=True,
+        view_channel=True,
+        read_message_history=True,
+        attach_files=True,
+        embed_links=True,
+        send_messages=True,
+    )
+    return overwrites
 
 
 class TicketSystem(Cog):
@@ -103,6 +119,13 @@ class TicketSystem(Cog):
         )
         await channel.send(embed=emb)
 
+    async def remove_ticket_channel(self, channel: VoiceChannel):
+        is_active = self.bot.db.ticket_system_table.is_active_voice_channel(channel.id)
+        if not is_active:
+            return
+
+        await channel.delete("Voice expired :)")
+
     @Cog.listener()
     async def on_guild_channel_delete(self, channel: TextChannel):
         if channel.category_id is None or channel.category_id != TICKET_CATEGORY_ID:
@@ -116,6 +139,14 @@ class TicketSystem(Cog):
         deleted = self.bot.db.ticket_system_table.delete_ticket(channel_id)
         if deleted:
             await self._audit_log(f"<@{deleted.author_id}>'s {deleted.category} ticket was deleted")
+
+    @Cog.listener()
+    async def on_voice_state_update(self, member: Member, before: VoiceState, after: VoiceState):
+        if before.channel is not None and after.channel is None:
+            channel = before.channel
+            if channel.members:
+                return
+            await self.check_drift_ticket_voice_channel(before.channel, member)
 
     @Cog.listener()
     async def on_ready(self):
@@ -265,22 +296,13 @@ class TicketSelector(View):
                 f"Ticket category Id not found (ticket.json), please contact an admin, {self.ticket_category_id}",
             )
 
-        overwrites = ticket_category.overwrites
-        overwrites[guild.default_role] = PermissionOverwrite(view_channel=False)
-        overwrites[user] = PermissionOverwrite(
-            use_slash_commands=True,
-            view_channel=True,
-            read_message_history=True,
-            attach_files=True,
-            embed_links=True,
-            send_messages=True,
-        )
+        permissions = allow_user_permissions(ticket_category,  user)
 
         channel = await ticket_category.create_text_channel(
             f"{category.title()}-{user.display_name}",
             topic=f"{category.title()} ticket for {user}",
             reason="Ticket System",
-            overwrites=overwrites,
+            overwrites=permissions,
         )
         ticket = IndividualTicket(
             channel_id=channel.id,
@@ -336,12 +358,18 @@ class CloseTicket(View):
     async def closed_ticket(self, button: Button, interaction: Interaction):
         author = cast(Member, interaction.user)
         channel = cast(TextChannel, interaction.channel)
+        guild = cast(Guild, interaction.guild)
         bot = cast('GormBot', interaction.client)
 
         ticket = bot.db.ticket_system_table.get_ticket(channel.id)
         author_name = ticket.author_name if ticket else "unknown"
         author_id = ticket.author_id if ticket else "unknown"
         category = ticket.category if ticket else "unknown"
+
+        if voice_channel_id := ticket.voice_channel:
+            voice_channel = guild.get_channel(voice_channel_id)
+            if voice_channel:
+                await voice_channel.delete(reason="ticket closed")
 
         await channel.edit(name=f"closed-{author_name}")
         await asyncio.sleep(1)
@@ -350,6 +378,40 @@ class CloseTicket(View):
         if audit:
             await audit.send_log(content=f"{author.id} {author.display_name} Closed {author_id} {author_name}'s {category} ticket")
         await channel.delete(reason=f"Ticket Closed by {author.id} {author.display_name}")
+
+    @button(
+        label="Voice",
+        style=ButtonStyle.blurple,
+        custom_id="ticketsystem:persistent:create_voice"
+    )
+    async def create_voice(self, button: Button, interaction: Interaction):
+        author = cast(Member, interaction.user)
+        channel = cast(TextChannel, interaction.channel)
+        bot = cast('GormBot', interaction.client)
+        guild = cast(Guild, interaction.guild)
+        category = cast(CategoryChannel, guild.get_channel(TICKET_CATEGORY_ID))
+
+        await interaction.response.defer(ephemeral=True)
+
+        ticket = bot.db.ticket_system_table.get_ticket(channel.id)
+
+        if ticket.voice_channel is not None:
+            await interaction.followup.send(f"Voice channel already exists at <#{ticket.voice_channel}>")
+            return
+
+        voice_channel = await category.create_voice_channel(
+            channel.name + "-voice",
+            overwrites=channel.overwrites,
+            reason=f"user requested {author.id} {author.display_name}"
+            )
+
+        ticket.voice_channel = voice_channel.id
+        await bot.db.ticket_system_table.upsert_ticket(ticket)
+
+        emb = Embed(colour=Colour.blurple(), title=f"{author.mention} created a voice chat {voice_channel.mention}")
+        await channel.send(embed=emb)
+        await interaction.followup.send("Voice Channel created")
+
 
 
 def setup(bot: Bot):

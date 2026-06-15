@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import List, Literal, Optional
 
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ class IndividualTicket:
     author_name: str
     category: TICKET_CATEGORY
     first_message: Optional[int] = None
+    voice_channel: Optional[int] = None
 
 
 class TicketConnection(DatabaseConnection):
@@ -80,3 +82,20 @@ class TicketConnection(DatabaseConnection):
     def get_all_ticket_ids(self) -> List[str]:
         with self as db:
             return list(db.keys())
+
+    def get_active_voice_channels(self) -> List[str]:
+        with self as db:
+            return [state["voice_channel"] for state in db.values() if "voice_channel" in state]
+
+    def is_active_voice_channel(self, channel_id: int | str) -> bool:
+        normalised_channel_id = str(channel_id)
+        with self as db:
+            for state in db.values():
+                if "voice_channel" not in state:
+                    continue
+
+                if str(state["voice_channel"]) != normalised_channel_id:
+                    continue
+
+                return True
+        return False
