@@ -144,7 +144,7 @@ class TicketSystem(Cog):
             channel = before.channel
             if channel.members:
                 return
-            await self.remove_ticket_channel(before.channel, member)
+            await self.remove_ticket_channel(before.channel)
 
     @Cog.listener()
     async def on_ready(self):
