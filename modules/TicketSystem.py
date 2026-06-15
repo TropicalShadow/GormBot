@@ -406,10 +406,9 @@ class CloseTicket(View):
         ticket.voice_channel = voice_channel.id
         bot.db.ticket_system_table.upsert_ticket(ticket)
 
-        emb = Embed(colour=Colour.blurple(), title=f"{author.mention} created a voice chat {voice_channel.mention}")
+        emb = Embed(colour=Colour.blurple(), title=f"{author.display_name} created a voice chat {voice_channel.mention}")
         await channel.send(embed=emb)
         await interaction.followup.send("Voice Channel created")
-
 
 
 def setup(bot: Bot):
