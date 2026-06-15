@@ -122,7 +122,7 @@ class TicketSystem(Cog):
         if not is_active:
             return
 
-        await channel.delete("Voice expired :)")
+        await channel.delete(reason="Voice expired :)")
 
     @Cog.listener()
     async def on_guild_channel_delete(self, channel: TextChannel):
