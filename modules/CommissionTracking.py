@@ -6,10 +6,10 @@ from discord.ui import Modal, InputText
 
 from db import IndividualTicket, TicketCategory
 from db.DatabaseSchema import Commission
+from .TicketSystem import create_ticket
 
 if TYPE_CHECKING:
     from utils import GormBot
-    from .TicketSystem import create_ticket
     from .AuditSystem import AuditSystem
 
 
