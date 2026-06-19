@@ -51,6 +51,8 @@ class GormBot(Bot):
     async def on_ready(self):
         self.logger.info("GormBot is ready!")
 
+        await self.db.create_tables(self.engine)
+
         if not self.user:
             return
 
