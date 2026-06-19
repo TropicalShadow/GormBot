@@ -1,5 +1,11 @@
 from typing import TYPE_CHECKING
-from . import TicketConnection
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from .TicketConnection import TicketConnection
+from .CommissionConnection import CommissionConnection
+from .DatabaseSchema import Base
 
 
 if TYPE_CHECKING:
@@ -7,19 +13,20 @@ if TYPE_CHECKING:
 
 
 class DatabaseManager:
-    TICKET_SYSTEM_DATABASE_FILE = "ticket_system.sqlite3"
-
-    def __init__(self, bot: "GormBot"):
+    def __init__(self, bot: "GormBot", session_factory: async_sessionmaker[AsyncSession]):
         self.bot = bot
+        self.session_factory = session_factory
 
-    def load(self) -> tuple[bool, str]:
-        try:
-            with self.ticket_system_table:
-                pass
-        except Exception as e:
-            return False, str(e)
-        return True, "Database loaded successfully"
+    @asynccontextmanager
+    async def ticket_session(self):
+        async with self.session_factory() as session:
+            yield TicketConnection(session)
 
-    @property
-    def ticket_system_table(self) -> TicketConnection:
-        return TicketConnection(DatabaseManager.TICKET_SYSTEM_DATABASE_FILE, "TicketSystem")
+    @asynccontextmanager
+    async def commission_session(self):
+        async with self.session_factory() as session:
+            yield CommissionConnection(session)
+
+    async def create_tables(self, engine):
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)

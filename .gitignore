@@ -11,3 +11,7 @@ wheels/
 
 .env
 *.sqlite3
+
+CLAUDE.md
+graphify-out/
+.claude/

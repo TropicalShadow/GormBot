@@ -1,6 +1,6 @@
-__all__ = ("DatabaseConnection", "TicketConnection", "TICKET_CATEGORY", "DatabaseManager")
+__all__ = ("TicketConnection", "DatabaseManager", "IndividualTicket", "TicketCategory")
 
 
-from .DatabaseConnection import DatabaseConnection
-from .TicketConnection import TicketConnection, TICKET_CATEGORY
+from .TicketConnection import TicketConnection
 from .DatabaseManager import DatabaseManager
+from .DatabaseSchema import IndividualTicket, TicketCategory

@@ -3,7 +3,14 @@ from coghotswap import Watcher
 from discord import Intents, __version__
 from discord.bot import Bot
 import logging
+from os import getenv
 
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    AsyncEngine,
+    async_sessionmaker,
+    create_async_engine,
+)
 from db import DatabaseManager
 
 
@@ -20,7 +27,24 @@ class GormBot(Bot):
         self.logger.info("Discord Version: %s", __version__)
         self.logger.info("GormBot is initializing...")
         self.watcher = Watcher(self, "modules", preload=True)  # type: ignore
-        self.db = DatabaseManager(self)
+
+    def setup_database(self) -> None:
+        db_url = getenv("DB_URL")
+        if db_url is None:
+            raise ValueError("DB_URL environment variable is not set")
+
+        self.engine: AsyncEngine = create_async_engine(
+            db_url,
+            echo=False,
+        )
+
+        self.session_factory = async_sessionmaker(
+            bind=self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+
+        self.db = DatabaseManager(self, self.session_factory)
 
     async def on_ready(self):
         self.logger.info("GormBot is ready!")
