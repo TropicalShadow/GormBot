@@ -28,6 +28,8 @@ class GormBot(Bot):
         self.logger.info("GormBot is initializing...")
         self.watcher = Watcher(self, "modules", preload=True)  # type: ignore
 
+        self.setup_database()
+
     def setup_database(self) -> None:
         db_url = getenv("DB_URL")
         if db_url is None:
