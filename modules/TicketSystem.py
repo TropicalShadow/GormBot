@@ -272,7 +272,7 @@ class TicketSystem(Cog):
             ephemeral=True,
         )
         emb = Embed(
-            title=f"{member.mention} has been added to the ticket!", colour=0x00FF00
+            title=f"{member.display_name} has been added to the ticket!", colour=0x00FF00
         )
         await channel.send(embed=emb)
 
