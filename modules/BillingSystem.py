@@ -119,6 +119,56 @@ class BillingSystem(Cog):
 
         await ctx.respond(embed=embed)
 
+    @BILL_GROUP.command(name="request_final", description="Send final payment link to the client")
+    async def request_final(self, ctx: ApplicationContext):
+        bot = cast("GormBot", ctx.bot)
+        channel_id = ctx.channel_id
+
+        async with bot.db.commission_session() as session:
+            comm = await session.get_comm_by_channel(channel_id)
+            if not comm:
+                await ctx.respond("No commission found for this ticket.", ephemeral=True)
+                return
+
+        async with bot.db.billing_session() as billing:
+            bill = await billing.get_bill_by_commission(comm.id)
+            if not bill:
+                await ctx.respond("No bill found. Use `/bill create` first.", ephemeral=True)
+                return
+            if not bill.deposit_paid:
+                await ctx.respond("Deposit must be paid before requesting final payment.", ephemeral=True)
+                return
+            if bill.final_paid:
+                await ctx.respond("Final payment already paid.", ephemeral=True)
+                return
+
+        final_amt = float(bill.total_amount) * (1 - bill.deposit_percent / 100)
+
+        async with bot.db.config_session() as config:
+            stripe_enabled = (await config.get("stripe_enabled") or "true") == "true"
+            crypto_enabled = (await config.get("crypto_enabled") or "true") == "true"
+
+        payment_info = []
+        if stripe_enabled and self.stripe_api_key:
+            link, session_id = await self._create_stripe_payment_link(
+                final_amt, f"Final payment for {comm.project_name}"
+            )
+            if link and session_id:
+                async with bot.db.billing_session() as billing:
+                    await billing.set_stripe_final_id(bill.id, session_id)
+                payment_info.append(f"**Stripe:** [Pay Final Amount]({link})")
+        if crypto_enabled:
+            payment_info.append("**Crypto:** Contact for address")
+        if not payment_info:
+            payment_info.append("No payment methods available.")
+
+        embed = Embed(title="Final Payment Requested", colour=Colour.orange())
+        embed.add_field(name="Amount Due", value=f"${final_amt:.2f}", inline=True)
+        embed.add_field(name="Payment Options", value="\n".join(payment_info), inline=False)
+
+        await ctx.channel.send(embed=embed)
+        await ctx.respond("Final payment request sent.", ephemeral=True)
+
     CONFIRM_GROUP = BILL_GROUP.create_subgroup(
         name="confirm",
         description="Manual payment confirmation",
