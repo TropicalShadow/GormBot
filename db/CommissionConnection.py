@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .DatabaseSchema import Commission
+from .DatabaseSchema import Commission, CommissionAssignment
 
 
 class CommissionConnection:
@@ -41,3 +41,43 @@ class CommissionConnection:
             select(Commission).where(Commission.ticket_channel_id == channel_id)
         )
         return result.scalar_one_or_none()
+
+    async def assign_member(self, commission_id: int, member_id: int, member_name: str) -> None:
+        assignment = CommissionAssignment(
+            commission_id=commission_id,
+            member_id=member_id,
+            member_name=member_name
+        )
+        self.session.add(assignment)
+        await self.session.commit()
+
+    async def unassign_member(self, commission_id: int, member_id: int) -> bool:
+        result = await self.session.execute(
+            select(CommissionAssignment).where(
+                CommissionAssignment.commission_id == commission_id,
+                CommissionAssignment.member_id == member_id
+            )
+        )
+        assignment = result.scalar_one_or_none()
+        if assignment:
+            await self.session.delete(assignment)
+            await self.session.commit()
+            return True
+        return False
+
+    async def get_assignments(self, commission_id: int) -> list[CommissionAssignment]:
+        result = await self.session.execute(
+            select(CommissionAssignment).where(
+                CommissionAssignment.commission_id == commission_id
+            )
+        )
+        return list(result.scalars().all())
+
+    async def is_assigned(self, commission_id: int, member_id: int) -> bool:
+        result = await self.session.execute(
+            select(CommissionAssignment).where(
+                CommissionAssignment.commission_id == commission_id,
+                CommissionAssignment.member_id == member_id
+            )
+        )
+        return result.scalar_one_or_none() is not None
