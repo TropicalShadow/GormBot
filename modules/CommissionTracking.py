@@ -20,14 +20,14 @@ class CommissionTracking(Cog):
 
     COMMISSION_SLASH_COMMAND_GROUP = SlashCommandGroup(name="commission", description="management of the commission system")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="create")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="create", description="Create a new commission with project details")
     async def create_commission_command(self, ctx: ApplicationContext):
         await self.create_commission(ctx.response)
 
     async def create_commission(self, response: InteractionResponse):
         await response.send_modal(CreateCommissionModal())
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="start")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="start", description="Start work on a commission (sets status to in progress)")
     async def start_commission(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
@@ -45,7 +45,7 @@ class CommissionTracking(Cog):
 
         await ctx.respond("Commission started! Status: **In Progress**")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="cancel")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="cancel", description="Cancel the commission in this ticket")
     async def cancel_commission(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
@@ -60,7 +60,7 @@ class CommissionTracking(Cog):
 
         await ctx.respond("Commission cancelled.")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="complete")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="complete", description="Mark the commission as completed (requires full payment)")
     async def complete_commission(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
@@ -84,7 +84,7 @@ class CommissionTracking(Cog):
 
         await ctx.respond("Commission completed!")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="assign")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="assign", description="Assign a team member to this commission")
     @option("member", Member, description="Member to assign")
     async def assign_member(self, ctx: ApplicationContext, member: Member):
         bot = cast("GormBot", ctx.bot)
@@ -102,7 +102,7 @@ class CommissionTracking(Cog):
 
         await ctx.respond(f"{member.display_name} assigned to commission.")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="unassign")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="unassign", description="Remove a team member from this commission")
     @option("member", Member, description="Member to unassign")
     async def unassign_member(self, ctx: ApplicationContext, member: Member):
         bot = cast("GormBot", ctx.bot)
@@ -120,7 +120,7 @@ class CommissionTracking(Cog):
 
         await ctx.respond(f"{member.display_name} unassigned from commission.")
 
-    @COMMISSION_SLASH_COMMAND_GROUP.command(name="info")
+    @COMMISSION_SLASH_COMMAND_GROUP.command(name="info", description="View commission details, assigned members, and billing status")
     async def commission_info(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id

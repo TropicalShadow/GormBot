@@ -34,7 +34,7 @@ class BillingSystem(Cog):
         description="Billing management",
     )
 
-    @BILL_GROUP.command(name="create")
+    @BILL_GROUP.command(name="create", description="Create a bill for the commission with deposit and final amounts")
     @option("amount", float, description="Total amount")
     @option("deposit_percent", int, description="Deposit percentage", default=50, min_value=0, max_value=100)
     async def create_bill(self, ctx: ApplicationContext, amount: float, deposit_percent: int = 50):
@@ -84,7 +84,7 @@ class BillingSystem(Cog):
 
         await ctx.respond(embed=embed)
 
-    @BILL_GROUP.command(name="status")
+    @BILL_GROUP.command(name="status", description="View payment status for the current commission's bill")
     async def bill_status(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
@@ -125,7 +125,7 @@ class BillingSystem(Cog):
         default_member_permissions=Permissions(administrator=True),
     )
 
-    @CONFIRM_GROUP.command(name="deposit")
+    @CONFIRM_GROUP.command(name="deposit", description="Manually mark the deposit as paid")
     async def confirm_deposit(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
@@ -152,7 +152,7 @@ class BillingSystem(Cog):
             )
         )
 
-    @CONFIRM_GROUP.command(name="final")
+    @CONFIRM_GROUP.command(name="final", description="Manually mark the final payment as paid")
     async def confirm_final(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id

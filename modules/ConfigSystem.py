@@ -29,7 +29,7 @@ class ConfigSystem(Cog):
         description="Payment provider configuration",
     )
 
-    @PAYMENTS_GROUP.command(name="status")
+    @PAYMENTS_GROUP.command(name="status", description="View which payment methods are currently enabled")
     async def payments_status(self, ctx: ApplicationContext):
         bot = cast("GormBot", ctx.bot)
         async with bot.db.config_session() as config:
@@ -49,7 +49,7 @@ class ConfigSystem(Cog):
         )
         await ctx.respond(embed=embed, ephemeral=True)
 
-    @PAYMENTS_GROUP.command(name="stripe")
+    @PAYMENTS_GROUP.command(name="stripe", description="Enable or disable Stripe payments")
     @option("action", str, choices=["enable", "disable"])
     async def stripe_toggle(self, ctx: ApplicationContext, action: str):
         bot = cast("GormBot", ctx.bot)
@@ -58,7 +58,7 @@ class ConfigSystem(Cog):
             await config.set("stripe_enabled", value)
         await ctx.respond(f"Stripe payments {action}d.", ephemeral=True)
 
-    @PAYMENTS_GROUP.command(name="crypto")
+    @PAYMENTS_GROUP.command(name="crypto", description="Enable or disable crypto payments")
     @option("action", str, choices=["enable", "disable"])
     async def crypto_toggle(self, ctx: ApplicationContext, action: str):
         bot = cast("GormBot", ctx.bot)
