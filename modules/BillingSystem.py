@@ -1,7 +1,5 @@
 from typing import cast, TYPE_CHECKING, Optional
-import asyncio
 from os import getenv
-import discord
 import stripe
 from discord.ext import tasks
 from discord.ext.commands import Cog, Bot
@@ -70,10 +68,12 @@ class BillingSystem(Cog):
 
         payment_info = []
         if stripe_enabled and self.stripe_api_key:
-            link = await self._create_stripe_payment_link(
+            link, session_id = await self._create_stripe_payment_link(
                 deposit_amt, f"Deposit for {comm.project_name}"
             )
-            if link:
+            if link and session_id:
+                async with bot.db.billing_session() as billing:
+                    await billing.set_stripe_deposit_id(bill.id, session_id)
                 payment_info.append(f"**Stripe:** [Pay Deposit]({link})")
         if crypto_enabled:
             payment_info.append("**Crypto:** Contact for address")
@@ -179,9 +179,9 @@ class BillingSystem(Cog):
             )
         )
 
-    async def _create_stripe_payment_link(self, amount: float, description: str) -> Optional[str]:
+    async def _create_stripe_payment_link(self, amount: float, description: str) -> tuple[Optional[str], Optional[str]]:
         if not self.stripe_api_key:
-            return None
+            return None, None
         try:
             stripe.api_key = self.stripe_api_key
             session = stripe.checkout.Session.create(
@@ -198,10 +198,10 @@ class BillingSystem(Cog):
                 success_url="https://example.com/success",
                 cancel_url="https://example.com/cancel",
             )
-            return session.url
+            return session.url, session.id
         except Exception as e:
             self.bot.logger.error(f"Stripe error: {e}")
-            return None
+            return None, None
 
     @tasks.loop(seconds=60)
     async def poll_payments(self):
