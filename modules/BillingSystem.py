@@ -36,7 +36,7 @@ class BillingSystem(Cog):
 
     @BILL_GROUP.command(name="create", description="Create a bill for the commission with deposit and final amounts")
     @option("amount", float, description="Total amount")
-    @option("deposit_percent", int, description="Deposit percentage", default=50, min_value=0, max_value=100)
+    @option("deposit_percent", int, description="Deposit percentage 50% def", default=50, min_value=0, max_value=100)
     async def create_bill(self, ctx: ApplicationContext, amount: float, deposit_percent: int = 50):
         bot = cast("GormBot", ctx.bot)
         channel_id = ctx.channel_id
