@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from .TicketConnection import TicketConnection
 from .CommissionConnection import CommissionConnection
+from .ConfigConnection import ConfigConnection
 from .DatabaseSchema import Base
 
 
@@ -26,6 +27,11 @@ class DatabaseManager:
     async def commission_session(self):
         async with self.session_factory() as session:
             yield CommissionConnection(session)
+
+    @asynccontextmanager
+    async def config_session(self):
+        async with self.session_factory() as session:
+            yield ConfigConnection(session)
 
     async def create_tables(self, engine):
         async with engine.begin() as conn:
