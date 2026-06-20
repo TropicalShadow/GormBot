@@ -124,7 +124,7 @@ class CreateCommissionModal(Modal):
 
         audit_system = cast("AuditSystem", bot.get_cog("AuditSystem"))
         if audit_system:
-            await audit_system.send_log(embed)
+            await audit_system.send_log(embed=embed)
 
 
 def setup(bot: Bot):
