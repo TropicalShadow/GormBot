@@ -101,8 +101,8 @@ class BillingSystem(Cog):
                 await ctx.respond("No bill created yet. Use `/bill create`.", ephemeral=True)
                 return
 
-        deposit_amt = bill.total_amount * (bill.deposit_percent / 100)
-        final_amt = bill.total_amount - deposit_amt
+        deposit_amt = float(bill.total_amount) * (bill.deposit_percent / 100)
+        final_amt = float(bill.total_amount) - deposit_amt
 
         embed = Embed(title="Bill Status", colour=Colour.blue())
         embed.add_field(name="Total", value=f"${bill.total_amount:.2f}", inline=True)
