@@ -12,6 +12,7 @@ dependencies = [
     "dataclasses-json>=0.6.7",
     "sqlalchemy>=2.0.51",
     "aiosqlite>=0.22.1",
+    "stripe>=15.2.1",
 ]
 
 [tool.uv.sources]

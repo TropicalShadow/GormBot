@@ -2,6 +2,7 @@ from typing import cast, TYPE_CHECKING, Optional
 import asyncio
 from os import getenv
 import discord
+import stripe
 from discord.ext import tasks
 from discord.ext.commands import Cog, Bot
 from discord import (
@@ -68,12 +69,16 @@ class BillingSystem(Cog):
             crypto_enabled = (await config.get("crypto_enabled") or "true") == "true"
 
         payment_info = []
-        if stripe_enabled:
-            payment_info.append("**Stripe:** Payment link coming soon")
+        if stripe_enabled and self.stripe_api_key:
+            link = await self._create_stripe_payment_link(
+                deposit_amt, f"Deposit for {comm.project_name}"
+            )
+            if link:
+                payment_info.append(f"**Stripe:** [Pay Deposit]({link})")
         if crypto_enabled:
-            payment_info.append("**Crypto:** Payment address coming soon")
+            payment_info.append("**Crypto:** Contact for address")
         if not payment_info:
-            payment_info.append("No payment methods currently available.")
+            payment_info.append("No payment methods available.")
 
         embed.add_field(name="Payment Options", value="\n".join(payment_info), inline=False)
 
@@ -174,9 +179,74 @@ class BillingSystem(Cog):
             )
         )
 
+    async def _create_stripe_payment_link(self, amount: float, description: str) -> Optional[str]:
+        if not self.stripe_api_key:
+            return None
+        try:
+            stripe.api_key = self.stripe_api_key
+            session = stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {"name": description},
+                        "unit_amount": int(amount * 100),
+                    },
+                    "quantity": 1,
+                }],
+                mode="payment",
+                success_url="https://example.com/success",
+                cancel_url="https://example.com/cancel",
+            )
+            return session.url
+        except Exception as e:
+            self.bot.logger.error(f"Stripe error: {e}")
+            return None
+
     @tasks.loop(seconds=60)
     async def poll_payments(self):
-        pass
+        if not self.stripe_api_key:
+            return
+
+        try:
+            stripe.api_key = self.stripe_api_key
+            async with self.bot.db.billing_session() as billing:
+                unpaid = await billing.get_unpaid_bills()
+
+                for bill in unpaid:
+                    if bill.stripe_deposit_id and not bill.deposit_paid:
+                        try:
+                            session = stripe.checkout.Session.retrieve(bill.stripe_deposit_id)
+                            if session.payment_status == "paid":
+                                await billing.mark_deposit_paid(bill.id)
+                                await self._notify_payment(bill, "deposit")
+                        except Exception:
+                            pass
+
+                    if bill.stripe_final_id and not bill.final_paid:
+                        try:
+                            session = stripe.checkout.Session.retrieve(bill.stripe_final_id)
+                            if session.payment_status == "paid":
+                                await billing.mark_final_paid(bill.id)
+                                await self._notify_payment(bill, "final")
+                        except Exception:
+                            pass
+        except Exception as e:
+            self.bot.logger.error(f"Payment poll error: {e}")
+
+    async def _notify_payment(self, bill, payment_type: str):
+        async with self.bot.db.commission_session() as session:
+            comm = await session.get_comm(bill.commission_id)
+            if comm and comm.ticket_channel_id:
+                channel = self.bot.get_channel(comm.ticket_channel_id)
+                if channel:
+                    await channel.send(
+                        embed=Embed(
+                            title="Payment Received",
+                            description=f"{payment_type.title()} payment confirmed automatically.",
+                            colour=Colour.green()
+                        )
+                    )
 
     @poll_payments.before_loop
     async def before_poll(self):
